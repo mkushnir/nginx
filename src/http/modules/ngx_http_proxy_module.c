@@ -9,6 +9,7 @@
 #include <ngx_core.h>
 #include <ngx_http.h>
 
+ngx_int_t (*g_ngx_http_proxy_process_status_line)(ngx_http_request_t *) = NULL;
 
 typedef struct {
     ngx_array_t                    caches;  /* ngx_http_file_cache_t * */
@@ -119,6 +120,7 @@ typedef struct {
 } ngx_http_proxy_ctx_t;
 
 
+static ngx_int_t ngx_http_proxy_init_process(ngx_cycle_t *cycle);
 static ngx_int_t ngx_http_proxy_eval(ngx_http_request_t *r,
     ngx_http_proxy_ctx_t *ctx, ngx_http_proxy_loc_conf_t *plcf);
 #if (NGX_HTTP_CACHE)
@@ -743,7 +745,7 @@ ngx_module_t  ngx_http_proxy_module = {
     NGX_HTTP_MODULE,                       /* module type */
     NULL,                                  /* init master */
     NULL,                                  /* init module */
-    NULL,                                  /* init process */
+    ngx_http_proxy_init_process,                                  /* init process */
     NULL,                                  /* init thread */
     NULL,                                  /* exit thread */
     NULL,                                  /* exit process */
@@ -839,6 +841,14 @@ static ngx_path_init_t  ngx_http_proxy_temp_path = {
 
 
 static ngx_int_t
+ngx_http_proxy_init_process(ngx_cycle_t *cycle)
+{
+    g_ngx_http_proxy_process_status_line = ngx_http_proxy_process_status_line;
+    return NGX_OK;
+}
+
+
+static ngx_int_t
 ngx_http_proxy_handler(ngx_http_request_t *r)
 {
     ngx_int_t                    rc;
@@ -890,7 +900,7 @@ ngx_http_proxy_handler(ngx_http_request_t *r)
 
     u->create_request = ngx_http_proxy_create_request;
     u->reinit_request = ngx_http_proxy_reinit_request;
-    u->process_header = ngx_http_proxy_process_status_line;
+    u->process_header = g_ngx_http_proxy_process_status_line; //
     u->abort_request = ngx_http_proxy_abort_request;
     u->finalize_request = ngx_http_proxy_finalize_request;
     r->state = 0;
@@ -1531,7 +1541,7 @@ ngx_http_proxy_reinit_request(ngx_http_request_t *r)
     ctx->status.end = NULL;
     ctx->chunked.state = 0;
 
-    r->upstream->process_header = ngx_http_proxy_process_status_line;
+    r->upstream->process_header = g_ngx_http_proxy_process_status_line;
     r->upstream->pipe->input_filter = ngx_http_proxy_copy_filter;
     r->upstream->input_filter = ngx_http_proxy_non_buffered_copy_filter;
     r->state = 0;

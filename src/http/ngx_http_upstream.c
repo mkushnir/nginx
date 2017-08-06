@@ -9,6 +9,10 @@
 #include <ngx_core.h>
 #include <ngx_http.h>
 
+void (*g_ngx_http_upstream_send_response)(ngx_http_request_t *r, ngx_http_upstream_t *u);
+void (*g_ngx_http_upstream_process_header)(ngx_http_request_t *r, ngx_http_upstream_t *u);
+
+static ngx_int_t ngx_http_upstream_init_process(ngx_cycle_t *);
 
 #if (NGX_HTTP_CACHE)
 static ngx_int_t ngx_http_upstream_cache(ngx_http_request_t *r,
@@ -366,7 +370,7 @@ ngx_module_t  ngx_http_upstream_module = {
     NGX_HTTP_MODULE,                       /* module type */
     NULL,                                  /* init master */
     NULL,                                  /* init module */
-    NULL,                                  /* init process */
+    ngx_http_upstream_init_process,                                  /* init process */
     NULL,                                  /* init thread */
     NULL,                                  /* exit thread */
     NULL,                                  /* exit process */
@@ -463,6 +467,15 @@ ngx_conf_bitmask_t  ngx_http_upstream_ignore_headers_masks[] = {
     { ngx_string("Vary"), NGX_HTTP_UPSTREAM_IGN_VARY },
     { ngx_null_string, 0 }
 };
+
+
+static ngx_int_t
+ngx_http_upstream_init_process(ngx_cycle_t *cycle)
+{
+    g_ngx_http_upstream_send_response = ngx_http_upstream_send_response;
+    g_ngx_http_upstream_process_header = ngx_http_upstream_process_header;
+    return NGX_OK;
+}
 
 
 ngx_int_t
@@ -1527,7 +1540,7 @@ ngx_http_upstream_connect(ngx_http_request_t *r, ngx_http_upstream_t *u)
     c->read->handler = ngx_http_upstream_handler;
 
     u->write_event_handler = ngx_http_upstream_send_request_handler;
-    u->read_event_handler = ngx_http_upstream_process_header;
+    u->read_event_handler = g_ngx_http_upstream_process_header;
 
     c->sendfile &= r->connection->sendfile;
     u->output.sendfile = c->sendfile;
@@ -2010,7 +2023,7 @@ ngx_http_upstream_send_request(ngx_http_request_t *r, ngx_http_upstream_t *u,
     ngx_add_timer(c->read, u->conf->read_timeout);
 
     if (c->read->ready) {
-        ngx_http_upstream_process_header(r, u);
+        g_ngx_http_upstream_process_header(r, u);
         return;
     }
 }
@@ -2324,7 +2337,7 @@ ngx_http_upstream_process_header(ngx_http_request_t *r, ngx_http_upstream_t *u)
     }
 
     if (!r->subrequest_in_memory) {
-        ngx_http_upstream_send_response(r, u);
+        g_ngx_http_upstream_send_response(r, u);
         return;
     }
 
