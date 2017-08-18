@@ -18,7 +18,7 @@ foo_run(int argc, char *const *argv)
             void (*fn)(int, char *const *);
 
             (void)snprintf(buf, sizeof(buf), "%s_test", ngx_module_names[i]);
-            fn = (void(*)(int, char *const *))dlfunc(dl, buf);
+            fn = (void(*)(int, char *const *))dlsym(dl, buf);
             if (fn != NULL) {
                 fn(argc, argv);
             } else {
