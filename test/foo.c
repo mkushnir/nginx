@@ -10,8 +10,8 @@ foo_run(int argc, char *const *argv)
     void *dl;
     unsigned i;
 
-    if ((dl = dlopen(NULL, 0)) == NULL) {
-        fprintf(stderr, "dlopen failed\n");
+    if ((dl = dlopen(NULL, RTLD_LAZY)) == NULL) {
+        fprintf(stderr, "dlopen failed: %s\n", dlerror());
     } else {
         for (i = 0; ngx_module_names[i] != NULL; ++i) {
             char buf[128];
